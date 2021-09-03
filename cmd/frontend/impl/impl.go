@@ -7,7 +7,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/cbellee/dapr-checkin/cmd/front-end/spec"
+	"frontend/spec"
 	"github.com/cbellee/dapr-checkin/pkg/helper"
 	dapr "github.com/dapr/go-sdk/client"
 	"github.com/dapr/go-sdk/service/common"

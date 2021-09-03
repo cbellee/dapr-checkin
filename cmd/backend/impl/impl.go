@@ -8,8 +8,9 @@ import (
 	"os"
 	"time"
 
-	"github.com/cbellee/dapr-checkin/cmd/back-end/spec"
-	"github.com/cbellee/dapr-checkin/pkg/helper"
+	"../spec"
+
+	"../../../pkg/helper"
 	dapr "github.com/dapr/go-sdk/client"
 	common "github.com/dapr/go-sdk/service/common"
 	daprd "github.com/dapr/go-sdk/service/http"

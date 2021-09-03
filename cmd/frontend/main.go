@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/cbellee/dapr-checkin/cmd/front-end/impl"
-	"github.com/cbellee/dapr-checkin/cmd/front-end/spec"
+	"./spec"
+	"./impl"
+	"github.com/cbellee/dapr-checkin/cmd/frontend/spec"
 	"github.com/dapr/go-sdk/service/common"
 )
 

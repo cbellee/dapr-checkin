@@ -5,8 +5,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/cbellee/dapr-checkin/cmd/front-end/impl"
-	"github.com/cbellee/dapr-checkin/cmd/front-end/spec"
+	"github.com/cbellee/dapr-checkin/cmd/backend/impl"
+	"github.com/cbellee/dapr-checkin/cmd/backend/spec"
+
 	"github.com/dapr/go-sdk/service/common"
 )
 
@@ -18,7 +19,7 @@ var (
 	messageBusName  = ""
 	storeName       = "checkin-statestore"
 	pubSubName      = "messages"
-	topicName = "checkinEvents"
+	topicName       = "checkinEvents"
 	secretStoreName = "azurekeyvault"
 	logger          = log.New(os.Stdout, "", 0)
 )
