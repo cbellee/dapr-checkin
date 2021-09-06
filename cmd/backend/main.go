@@ -1,58 +1,97 @@
 package main
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"log"
-	"net/http"
 	"os"
 
-	"github.com/cbellee/dapr-checkin/cmd/backend/impl"
-	"github.com/cbellee/dapr-checkin/cmd/backend/spec"
-
+	"github.com/cbellee/dapr-checkin/cmd/models"
 	"github.com/dapr/go-sdk/service/common"
+	"github.com/google/uuid"
+
+	dapr "github.com/dapr/go-sdk/client"
+	daprd "github.com/dapr/go-sdk/service/http"
 )
 
 var (
-	version         = "0.0.1"
-	buildInfo       = "No build details"
-	serviceName     = "back-end"
-	servicePort     = "8001"
-	messageBusName  = ""
-	storeName       = "checkin-statestore"
-	pubSubName      = "messages"
-	topicName       = "checkinEvents"
-	secretStoreName = "azurekeyvault"
-	logger          = log.New(os.Stdout, "", 0)
+	version          = "0.0.1"
+	serviceName      = "backend"
+	servicePort      = "8001"
+	queueBindingName = "servicebus.queue.binding"
+	logger           = log.New(os.Stdout, "", 0)
+	storeBindingName = "cosmosdb.store.binding"
 )
 
-var components = spec.DaprComponents{
-	MessageBusName: messageBusName,
-	TopicName:      topicName,
-}
-
+/*
 var sub = &common.Subscription{
 	PubsubName: pubSubName,
 	Topic:      "checkin",
-	Route:      "/checkins",
-	Metadata:   nil,
+	Route:      "/events",
 }
-
-// API type
-type API struct {
-	service spec.Service
-}
+*/
 
 func main() {
 	logger.Printf("### Dapr: %v v%v starting...", serviceName, version)
 
-	api := API{
-		impl.NewService(serviceName, servicePort, components),
+	port := fmt.Sprintf(":%s", servicePort)
+	server := daprd.NewService(port)
+
+	if err := server.AddBindingInvocationHandler(queueBindingName, checkinHandler); err != nil {
+		logger.Panicf("Failed to add queue binding invocation handler : %s", err)
 	}
 
-	if err := api.service.AddTopicHandler("/add", api.service.AddBet); err != nil {
-		logger.Fatalf("error adding 'AddBet' invocation handler: %v", err)
+	if err := server.Start(); err != nil {
+		logger.Panicf("Failed to start service : %s", err)
+	}
+}
+
+func checkinHandler(ctx context.Context, e *common.BindingEvent) (out []byte, err error) {
+	logger.Printf("event - Data: %s, MetaData: %s", e.Data, e.Metadata)
+
+	var checkin models.Checkin
+	if err := json.Unmarshal(e.Data, &checkin); err != nil {
+		logger.Fatal(err)
+		return nil, err
 	}
 
-	if err := api.service.StartService(); err != nil && err != http.ErrServerClosed {
-		logger.Fatalf("error: %v", err)
+	id := uuid.New()
+	checkin.ID = id.String()
+
+	// save to state store
+	saveCheckin(ctx, &checkin)
+
+	return out, nil
+}
+
+func saveCheckin(ctx context.Context, in *models.Checkin) (retry bool, err error) {
+
+	// create dapr client
+	client, err := dapr.NewClient()
+	if err != nil {
+		logger.Panicf("Failed to create Dapr client: %s", err)
 	}
+
+	bytArr, err := json.Marshal(in)
+	if err != nil {
+		logger.Print(err.Error())
+	}
+
+	br := &dapr.InvokeBindingRequest{
+		Name:      storeBindingName,
+		Data:      bytArr,
+		Operation: "create",
+	}
+
+	// save message to state store using output binding
+	logger.Printf("invoking binding '%s'", storeBindingName)
+	err = client.InvokeOutputBinding(ctx, br)
+	if err != nil {
+		logger.Print(err.Error())
+	} else {
+		logger.Printf("new checkin with UserID: '%s' LocationID: '%s' CheckinTime: '%d' saved successfully", in.UserID, in.LocationID, in.CheckInTimeStamp)
+	}
+
+	return false, nil
 }

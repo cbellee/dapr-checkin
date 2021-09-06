@@ -7,6 +7,10 @@ param sshPublicKey string
 param objectId string = '57963f10-818b-406d-a2f6-6e758d86e259'
 
 var acrPullRoleId = resourceId('Microsoft.Authorization/roleDefinitions', '7f951dda-4ed3-4680-a7ca-43fe172d538d')
+var readerRoleId = resourceId('Microsoft.Authorization/roleDefinitions', 'acdd72a7-3385-48ef-bd42-f606fba81ae7')
+var managedIdentityOperatorRoleId = resourceId('Microsoft.Authorization/roleDefinitions', 'f1a07417-d97a-45cb-824c-7a7467783830')
+var virtualMachineContributorRoleId = resourceId('Microsoft.Authorization/roleDefinitions', '9980e02c-c2be-4d73-94e8-173b1dc7cf3c')
+var azureServiceBusDataReceiverRoleId = resourceId('Microsoft.Authorization/roleDefinitions', '4f6d3b9b-027b-4f4c-9142-0e5a2a2247e0')
 var suffix = '${uniqueString(resourceGroup().id)}'
 var keyVaultName = 'kv-${suffix}'
 var serviceBusName = 'sb-${suffix}'
@@ -15,6 +19,7 @@ var acrName = 'acr${suffix}'
 var vnetName = 'vnet-${suffix}'
 var wksName = 'wks-${suffix}'
 var aksName = 'aks-${suffix}'
+var aiName = 'ai-${suffix}'
 var accessPolicies = [
   {
     permissions: {
@@ -34,10 +39,23 @@ var accessPolicies = [
     objectId: objectId
     tenantId: subscription().tenantId
   }
+  {
+    permissions: {
+      certificates: []
+      keys: []
+      secrets: [
+        'get'
+        'list'
+      ]
+      storage: []
+    }
+    objectId: aksMod.outputs.aksKubeletPrincipalId
+    tenantId: subscription().tenantId
+  }
 ]
 
 module wksMod 'modules/wks.bicep' = {
-  name: wksName
+  name: 'wksDeployment'
   params: {
     name: wksName
     retentionInDays: 30
@@ -45,8 +63,17 @@ module wksMod 'modules/wks.bicep' = {
   }
 }
 
+module aiMod './modules/ai.bicep' = {
+  name: 'aiDeployment'
+  params: {
+    name: aiName
+    tags: tags
+    workspaceId: wksMod.outputs.workspaceId
+  }
+}
+
 module acrMod 'modules/acr.bicep' = {
-  name: acrName
+  name: 'acrDeployment'
   params: {
     acrName: acrName
     tags: tags
@@ -136,7 +163,111 @@ resource AssignAcrPullToAks 'Microsoft.Authorization/roleAssignments@2021-04-01-
   }
 }
 
+resource AssignReaderRoleToAksManagedIdentity 'Microsoft.Authorization/roleAssignments@2021-04-01-preview' = {
+  name: guid(resourceGroup().id, aksName, 'AssignReaderRoleToAksManagedIdentity')
+  properties: {
+    description: 'Assign RespourceGroup Reader role to AKS managed identity'
+    principalId: aksMod.outputs.aksKubeletPrincipalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: readerRoleId
+  }
+}
+
+module AssignManagedIdentityOperatorRoleToAksManagedIdentityMod 'modules/identity.bicep' = {
+  name: 'managedIdentityOperatorRoleDeployment'
+  scope: resourceGroup('MC_${resourceGroup().name}_${aksName}_${resourceGroup().location}')
+  params: {
+    name: aksName
+    description: 'Assign ManagedIdentityOperator role to Aks Managed Identity'
+    roleAssignmentName: guid(resourceGroup().id, aksName, 'AssignManagedIdentityOperatorRoleToAksManagedIdentity')
+    roleId: managedIdentityOperatorRoleId
+    principalId: aksMod.outputs.aksKubeletPrincipalId
+  }
+}
+
+module AssignReaderVirtualMachineContributorToAksManagedIdentityMod 'modules/identity.bicep' = {
+  name: 'readerVirtualMachineContributorDeployment'
+  scope: resourceGroup('MC_${resourceGroup().name}_${aksName}_${resourceGroup().location}')
+  params: {
+    name: aksName
+    description: 'Assign VirtualMachineContributor role to Aks Managed Identity'
+    roleAssignmentName: guid(resourceGroup().id, aksName, 'AssignReaderVirtualMachineContributorToAksManagedIdentity')
+    roleId: virtualMachineContributorRoleId
+    principalId: aksMod.outputs.aksKubeletPrincipalId
+  }
+}
+
+module AssignAzureServiceBusDataReceiverToAksManagedIdentityMod 'modules/identity.bicep' = {
+  name: 'serviceBusDataReceiverDeployment'
+  scope: resourceGroup()
+  params: {
+    name: serviceBusName
+    description: 'Assign Azure Service Bus Data Receiver role to Aks Managed Identity'
+    roleAssignmentName: guid(resourceGroup().id, serviceBusName, 'AssignAzureServiceBusDataReceiverToAksManagedIdentity')
+    roleId: azureServiceBusDataReceiverRoleId
+    principalId: aksMod.outputs.aksKubeletPrincipalId
+  }
+}
+
+resource cosmosDbConnectionString 'Microsoft.KeyVault/vaults/secrets@2021-06-01-preview' = {
+  name: '${keyVaultName}/cosmosDbConnectionString'
+  tags: tags
+  properties: {
+    attributes: {
+      enabled: true
+    }
+    value: cosmosMod.outputs.connectionString
+  }
+}
+
+resource cosmosDbMasterKey 'Microsoft.KeyVault/vaults/secrets@2021-06-01-preview' = {
+  name: '${keyVaultName}/cosmosDbMasterKey'
+  tags: tags
+  properties: {
+    value: cosmosMod.outputs.masterKey
+    attributes: {
+      enabled: true
+    }
+  }
+}
+
+resource cosmosDbUrl 'Microsoft.KeyVault/vaults/secrets@2021-06-01-preview' = {
+  name: '${keyVaultName}/cosmosDbUrl'
+  tags: tags
+  properties: {
+    value: cosmosMod.outputs.endpointUri
+    attributes: {
+      enabled: true
+    }
+  }
+}
+
+resource serviceBusConnectionString 'Microsoft.KeyVault/vaults/secrets@2021-06-01-preview' = {
+  name: '${keyVaultName}/sbConnectionString'
+  tags: tags
+  properties: {
+    value: sbMod.outputs.connectionString
+    attributes: {
+      enabled: true
+    }
+  }
+}
+
+resource appInsightsInstrumentationKey 'Microsoft.KeyVault/vaults/secrets@2021-06-01-preview' = {
+  name: '${keyVaultName}/aiInstrumentationKey'
+  tags: tags
+  properties: {
+    value: aiMod.outputs.instrumentationKey
+    attributes: {
+      enabled: true
+    }
+  }
+}
+
 output cosmosDbId string = cosmosMod.outputs.id
 output acrId string = acr.id
 output kvId string = kvMod.outputs.id
 output kvUri string = kvMod.outputs.keyVaultUri
+output aksClusterName string = aksMod.outputs.aksClusterName
+output appInsightsId string = aiMod.outputs.id
+output appInsightsName string = aiMod.outputs.name

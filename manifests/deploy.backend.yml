@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app: backend
+    aadpodidbinding: dapr-checkin-cluster-mid
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+        aadpodidbinding: dapr-checkin-cluster-mid
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "backend"
+        dapr.io/port: "8001"
+        dapr.io/log-level: "debug"
+        dapr.io/config: "tracing"
+        dapr.io/profiling: "true"
+    spec:
+      containers:
+        - name: backend
+          image: acrxrgol23o5l5pw.azurecr.io/backend:dev-0.1.0
+          ports:
+            - containerPort: 8001
+          imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi

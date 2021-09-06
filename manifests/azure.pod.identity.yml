@@ -1,0 +1,16 @@
+apiVersion: "aadpodidentity.k8s.io/v1"
+kind: AzureIdentity
+metadata:
+  name: dapr-checkin-cluster-mid
+spec:
+  type: 0
+  resourceID: /subscriptions/b2375b5f-8dab-4436-b87c-32bc7fdce5d0/resourcegroups/MC_dapr-checkin-rg_aks-xrgol23o5l5pw_australiaeast/providers/Microsoft.ManagedIdentity/userAssignedIdentities/aks-xrgol23o5l5pw-agentpool
+  clientID: 3258643f-474c-462a-b4aa-213792e261b2
+---
+apiVersion: "aadpodidentity.k8s.io/v1"
+kind: AzureIdentityBinding
+metadata:
+  name: dapr-bet-cluster-agentpool-identity-binding
+spec:
+  azureIdentity: dapr-checkin-cluster-mid
+  selector: dapr-checkin-cluster-mid

@@ -1,0 +1,22 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: cosmosdb.store.binding
+spec:
+  type: bindings.azure.cosmosdb
+  version: v1
+  metadata:
+  - name: url
+    secretKeyRef:
+      name: cosmosDbUrl
+  - name: masterKey
+    secretKeyRef:
+      name: cosmosDbMasterKey
+  - name: database
+    value: checkins
+  - name: collection
+    value: default
+  - name: partitionKey
+    value: user_id
+auth:
+  secretStore: azurekeyvault

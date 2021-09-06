@@ -1,0 +1,17 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: servicebus.queue.binding
+spec:
+  type: bindings.azure.servicebusqueues
+  version: v1
+  metadata:
+  - name: connectionString
+    secretKeyRef: 
+      name: sbConnectionString
+  - name: queueName
+    value: checkin
+  - name: ttlInSeconds
+    value: "60"
+auth:
+  secretStore: azurekeyvault

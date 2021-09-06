@@ -1,0 +1,21 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: statestore
+spec:
+  type: state.azure.cosmosdb
+  metadata:
+    - name: url
+      secretKeyRef:
+        name: cosmosDbUrl
+    - name: masterKey
+      secretKeyRef:
+        name: cosmosDbMasterKey
+    - name: database
+      value: checkins
+    - name: collection
+      value: default
+    - name: partitionKey
+      value: "user_id"
+auth:
+  secretStore: azurekeyvault

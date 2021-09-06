@@ -1,0 +1,35 @@
+apiVersion: keda.sh/v1alpha1
+kind: TriggerAuthentication
+metadata:
+  name: azure-servicebus-auth
+  labels: 
+    aadpodidbinding: dapr-checkin-cluster-mid
+spec:
+  podIdentity:
+    provider: azure
+  #secretTargetRef:
+  #  - parameter: connection
+  #    name: service-bus-connection-string
+  #    key: sbConnectionString
+---
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: azure-servicebus-queue-scaledobject
+  namespace: default
+  labels: 
+    aadpodidbinding: dapr-checkin-cluster-mid
+spec:
+  scaleTargetRef:
+    name: backend
+  # pollingInterval: 5 # seconds
+  minReplicaCount: 1
+  maxReplicaCount: 20
+  triggers:
+    - type: azure-servicebus
+      metadata:
+        queueName: checkin
+        namespace: sb-xrgol23o5l5pw
+        messageCount: '1'
+      authenticationRef:
+        name: azure-servicebus-auth

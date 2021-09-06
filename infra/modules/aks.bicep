@@ -231,3 +231,4 @@ output aksControlPlaneFQDN string = reference('Microsoft.ContainerService/manage
 output aksApiServerUri string = '${reference(aksClusterId, '2018-03-31').fqdn}:443'
 output aksClusterName string = aksCluster.name
 output aksKubeletPrincipalId string = aksCluster.properties.identityProfile.kubeletidentity.objectId
+output aksNodeResourceGroupId string = aksCluster.properties.nodeResourceGroup
